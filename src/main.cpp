@@ -69,8 +69,6 @@ int main() {
 	world.create(camera);
 	std::cout << "TOTAL TIME: " << Window::get().time() - t << '\n';
 
-	const int chunkCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;
-
 	while (!Window::get().shouldClose()) {
 		currentTime = Window::get().time();
 		deltaTime = currentTime - lastTime;
@@ -85,9 +83,7 @@ int main() {
 		ShaderCache::get().use(program);
 		ShaderCache::get().setMat4(program, "uView", camera.getView());
 
-		for (int i = 0; i < chunkCount; i++) {
-			world.drawChunk(i);
-		}
+		world.draw();
 
 		if (Input::get().didKeyClick(KeyCode::Digit1)) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

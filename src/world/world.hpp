@@ -26,9 +26,13 @@ public:
         float t = Window::get().time();
         std::cout << "CREATE CHUNKS BEGIN\n";
 
+        // TODO: !!! not cache friendly, consider changing indexing order for chunks
+        // it could make some sense for rendering too, because fully covered chunks do not need to be drawn
+        // currently you do not check if a chunk even contains any geometry (the case mentioned above)!!!
+
         for (int c_z = 0; c_z < CHUNKS_Z; c_z++)
-        for (int c_y = 0; c_y < CHUNKS_Y; c_y++)
-        for (int c_x = 0; c_x < CHUNKS_X; c_x++) {
+        for (int c_x = 0; c_x < CHUNKS_X; c_x++)
+        for (int c_y = 0; c_y < CHUNKS_Y; c_y++) {
             int i = c_z * CHUNKS_X * CHUNKS_Y + c_y * CHUNKS_X + c_x;
             chunks[i].empty = true;
             chunkGenerator.createChunk(c_x, c_y, c_z, i, chunks);
@@ -84,22 +88,14 @@ public:
         );
     }
 
-    void drawChunk(int index) {
-        if (chunks[index].empty) return;
-
-        glBindVertexArray(VAOs[index]);
-        
-        glDrawElementsInstanced(
-            GL_TRIANGLES,
-            indicesCount[index],
-            GL_UNSIGNED_INT,
-            0,
-            1
-        );
+    void draw() {
+        for (int i = 0; i < chunkCount; i++) {
+            drawChunk(i);
+        }
     }
 
     World() : 
-        chunks(std::make_unique<Chunk[]>(CHUNKS_X * CHUNKS_Y * CHUNKS_Z)), 
+        chunks(std::make_unique<Chunk[]>(chunkCount)),
         offsets(std::make_unique<glm::vec4[]>(CHUNKS_X * CHUNKS_Y * CHUNKS_Z)),
         indicesCount(std::make_unique<uint32[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)),
         VAOs(std::make_unique<GLuint[]>(CHUNKS_X * CHUNKS_Y * CHUNKS_Z)),
@@ -113,7 +109,22 @@ public:
 private:
     ChunkGenerator chunkGenerator;
 
+    const int chunkCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;
 	std::unique_ptr<Chunk[]> chunks;
+
+    void drawChunk(int index) {
+        if (chunks[index].empty) return;
+
+        glBindVertexArray(VAOs[index]);
+
+        glDrawElementsInstanced(
+            GL_TRIANGLES,
+            indicesCount[index],
+            GL_UNSIGNED_INT,
+            0,
+            1
+        );
+    }
 
     std::unique_ptr<uint32[]> indicesCount;
     std::unique_ptr<GLuint[]> VAOs;
