@@ -168,94 +168,82 @@ private:
 	void addVoxel(Block block, int x, int y, int z, uint32& indexOffset) {
         if (block == BLOCK_AIR) return;
 
-        if (isAir(block, x, y, z + 1)) {
+        if (isAir(x, y, z + 1)) {
             addFrontFace(vertices, indices, x, y, z, indexOffset, block);
             indexOffset += 4;
         }
 
-        if (isAir(block, x, y, z - 1)) {
+        if (isAir(x, y, z - 1)) {
             addBackFace(vertices, indices, x, y, z, indexOffset, block);
             indexOffset += 4;
         }
 
-        if (isAir(block, x - 1, y, z)) {
+        if (isAir(x - 1, y, z)) {
             addLeftFace(vertices, indices, x, y, z, indexOffset, block);
             indexOffset += 4;
         }
 
-        if (isAir(block, x + 1, y, z)) {
+        if (isAir(x + 1, y, z)) {
             addRightFace(vertices, indices, x, y, z, indexOffset, block);
             indexOffset += 4;
         }
 
-        if (isAir(block, x, y + 1, z)) {
+        if (isAir(x, y + 1, z)) {
             addTopFace(vertices, indices, x, y, z, indexOffset, block);
             indexOffset += 4;
         }
 
-        if (isAir(block, x, y - 1, z)) {
+        if (isAir(x, y - 1, z)) {
             addBottomFace(vertices, indices, x, y, z, indexOffset, block);
             indexOffset += 4;
         }
 	}
 
-    bool isAir(Block block, int x, int y, int z) {
-        // x
-        if (x < 0 && current_x > 0) {
-            return chunks[current_z * CHUNKS_X * CHUNKS_Y + current_y * CHUNKS_X + (current_x - 1)].data[
-                z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + (CHUNK_SIZE + x)
-            ] == BLOCK_AIR;
+    bool isAir(int x, int y, int z) {
+        // find the chunk in which you should land
+        int nx = current_x;
+        int ny = current_y;
+        int nz = current_z;
+
+        if (x < 0) {
+            nx--;
+            x += CHUNK_SIZE;
         }
-        else if (x >= CHUNK_SIZE && current_x < CHUNKS_X - 1) {
-            return chunks[current_z * CHUNKS_X * CHUNKS_Y + current_y * CHUNKS_X + (current_x + 1)].data[
-                z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + (CHUNK_SIZE - x)
-            ] == BLOCK_AIR;
+        else if (x >= CHUNK_SIZE) {
+            nx++;
+            x -= CHUNK_SIZE;
         }
 
-        // y
-        if (y < 0 && current_y > 0) {
-            return chunks[current_z * CHUNKS_X * CHUNKS_Y + (current_y - 1) * CHUNKS_X + current_x].data[
-                z * CHUNK_SIZE_SQ + (CHUNK_SIZE + y) * CHUNK_SIZE + x
-            ] == BLOCK_AIR;
+        if (y < 0) {
+            ny--;
+            y += CHUNK_SIZE;
         }
-        else if (y >= CHUNK_SIZE && current_y < CHUNKS_Y - 1) {
-            return chunks[current_z * CHUNKS_X * CHUNKS_Y + (current_y + 1) * CHUNKS_X + current_x].data[
-                z * CHUNK_SIZE_SQ + (CHUNK_SIZE - y) * CHUNK_SIZE + x
-            ] == BLOCK_AIR;
+        else if (y >= CHUNK_SIZE) {
+            ny++;
+            y -= CHUNK_SIZE;
         }
 
-        // z
-        if (z < 0 && current_z > 0) {
-            return chunks[(current_z - 1) * CHUNKS_X * CHUNKS_Y + current_y * CHUNKS_X + current_x].data[
-                (CHUNK_SIZE + z) * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
-            ] == BLOCK_AIR;
+        if (z < 0) {
+            nz--;
+            z += CHUNK_SIZE;
         }
-        else if (z >= CHUNK_SIZE && current_z < CHUNKS_Z - 1) {
-            return chunks[(current_z + 1) * CHUNKS_X * CHUNKS_Y + current_y * CHUNKS_X + current_x].data[
-                (CHUNK_SIZE - z) * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
-            ] == BLOCK_AIR;
+        else if (z >= CHUNK_SIZE) {
+            nz++;
+            z -= CHUNK_SIZE;
         }
 
         if (
-            x < 0 ||
-            y < 0 ||
-            z < 0
+            nx < 0 || nx >= CHUNKS_X ||
+            ny < 0 || ny >= CHUNKS_Y ||
+            nz < 0 || nz >= CHUNKS_Z
             ) {
             return true;
         }
 
-        if (
-            x >= CHUNK_SIZE ||
-            y >= CHUNK_SIZE ||
-            z >= CHUNK_SIZE
-            ) {
-            return true;
-        }
-
-        return
-            chunks[currentChunk].data[
-                z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
-            ] == BLOCK_AIR;
+        const int chunkIndex = nz * CHUNKS_X * CHUNKS_Y + ny * CHUNKS_X + nx;
+        return chunks[chunkIndex].data[
+            z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
+        ] == BLOCK_AIR;
     }
 
     void uploadToGPU() {
@@ -294,7 +282,7 @@ private:
             sizeof(uint32),
             reinterpret_cast<void*>(
                 static_cast<uintptr_t>(currentChunk * sizeof(uint32))
-                )
+            )
         );
         glEnableVertexAttribArray(1);
 
@@ -322,17 +310,17 @@ private:
 
     void generateOffsets() {
         for (int z = 0; z < CHUNKS_Z; z++)
-            for (int y = 0; y < CHUNKS_Y; y++)
-                for (int x = 0; x < CHUNKS_X; x++) {
-                    int index = z * CHUNKS_X * CHUNKS_Y + y * CHUNKS_X + x;
+        for (int y = 0; y < CHUNKS_Y; y++)
+        for (int x = 0; x < CHUNKS_X; x++) {
+            int index = z * CHUNKS_X * CHUNKS_Y + y * CHUNKS_X + x;
 
-                    offsets[index] = glm::vec4(
-                        float(x * CHUNK_SIZE),
-                        float(y * CHUNK_SIZE),
-                        float(z * CHUNK_SIZE),
-                        0.0f
-                    );
-                }
+            offsets[index] = glm::vec4(
+                float(x * CHUNK_SIZE),
+                float(y * CHUNK_SIZE),
+                float(z * CHUNK_SIZE),
+                0.0f
+            );
+        }
     }
 
     void uploadOffsets() {

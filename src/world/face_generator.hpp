@@ -7,12 +7,12 @@
 #include "types/vertex.h"
 #include "types/block.h"
 
-uint32 packValue(
+inline uint32 packValue(
     uint32 x, uint32 y, uint32 z,
     uint32 normal,
     uint32 uv,
     uint32 blockType
-) {
+    ) {
     return
         x << SHIFT_POS_X |
         y << SHIFT_POS_Y |
@@ -22,7 +22,7 @@ uint32 packValue(
         blockType << SHIFT_BLOCK_TYPE;
 }
 
-void addFrontFace(
+inline void addFrontFace(
     std::vector<Vertex>& vertices, std::vector<uint32>& indices,
     int x, int y, int z,
     uint32 indexOffset,
@@ -73,7 +73,7 @@ void addFrontFace(
     indices.push_back(0 + indexOffset);
 }
 
-void addBackFace(
+inline void addBackFace(
     std::vector<Vertex>& vertices, std::vector<uint32>& indices,
     int x, int y, int z,
     uint32 indexOffset,
@@ -124,7 +124,7 @@ void addBackFace(
     indices.push_back(indexOffset + 0);
 }
 
-void addLeftFace(
+inline void addLeftFace(
     std::vector<Vertex>& vertices, std::vector<uint32>& indices,
     int x, int y, int z,
     uint32 indexOffset,
@@ -175,7 +175,7 @@ void addLeftFace(
     indices.push_back(indexOffset + 0);
 }
 
-void addRightFace(
+inline void addRightFace(
     std::vector<Vertex>& vertices, std::vector<uint32>& indices,
     int x, int y, int z,
     uint32 indexOffset,
@@ -226,7 +226,7 @@ void addRightFace(
     indices.push_back(indexOffset + 0);
 }
 
-void addTopFace(
+inline void addTopFace(
     std::vector<Vertex>& vertices, std::vector<uint32>& indices,
     int x, int y, int z,
     uint32 indexOffset,
@@ -277,7 +277,7 @@ void addTopFace(
     indices.push_back(indexOffset + 0);
 }
 
-void addBottomFace(
+inline void addBottomFace(
     std::vector<Vertex>& vertices, std::vector<uint32>& indices, 
     int x, int y, int z, 
     uint32 indexOffset, 
