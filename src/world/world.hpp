@@ -105,15 +105,19 @@ public:
         srand(time(NULL));
         int seed = rand();
         chunkGenerator.create(seed);
+
+        containsGeometry.fill(false);
     }
 private:
     ChunkGenerator chunkGenerator;
 
-    const int chunkCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;
+    static const int chunkCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;
 	std::unique_ptr<Chunk[]> chunks;
 
+    std::array<bool, chunkCount> containsGeometry;
+
     void drawChunk(int index) {
-        if (chunks[index].empty) return;
+        if (!containsGeometry[index]) return;
 
         glBindVertexArray(VAOs[index]);
 
@@ -171,8 +175,12 @@ private:
                 addVoxel(block, x, y, z, indexOffset);
             }
 
+            bool shouldUpload = containsGeometry[currentChunk] = vertices.size() > 0;
             indicesCount[currentChunk] = indices.size();
-            uploadToGPU();
+
+            if (shouldUpload) {
+                uploadMesh();
+            }
         }
 	}
 
@@ -211,7 +219,7 @@ private:
 	}
 
     bool isAir(int x, int y, int z) {
-        // find the chunk in which you should land
+        // to find the chunk in which you should land
         int nx = current_x;
         int ny = current_y;
         int nz = current_z;
@@ -257,7 +265,7 @@ private:
         ] == BLOCK_AIR;
     }
 
-    void uploadToGPU() {
+    void uploadMesh() {
         // generate buffers
         glGenVertexArrays(1, &VAOs[currentChunk]);
         glBindVertexArray(VAOs[currentChunk]);
@@ -297,7 +305,7 @@ private:
         );
         glEnableVertexAttribArray(1);
 
-        // one index per each vertex in a chunk
+        // one index per chunk for each vertex
         glVertexAttribDivisor(1, 1);
 
         glGenBuffers(1, &EBOs[currentChunk]);

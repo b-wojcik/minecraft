@@ -27,7 +27,7 @@ public:
 		if (!created) {
 			if (!warningShown) {
 				PROGRAM_WARNING(
-					"bwgl::FPCamera::update(): camera not created"
+					"FPCamera::update(): camera not created"
 				);
 				warningShown = true;
 			}

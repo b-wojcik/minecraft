@@ -37,7 +37,7 @@ public:
 	void create(int width, int height, const char* title, bool resizable = false) {
 		if (m_window) {
 			PROGRAM_WARNING(
-				"bwgl::Window::create(): window has been created already"
+				"Window::create(): window has been created already"
 			);
 			return;
 		}
@@ -45,7 +45,7 @@ public:
 		// initialize GLFW
 		if (!glfwInit()) {
 			PROGRAM_ERROR(
-				"bwgl::Window::create(): failed to initialize GLFW"
+				"Window::create(): failed to initialize GLFW"
 			);
 		}
 		m_glfwInitialized = true;
@@ -68,7 +68,7 @@ public:
 
 		if (!m_window) {
 			PROGRAM_ERROR(
-				"bwgl::Window::create(): failed to create an OpenGL 4.4 GLFW window"
+				"Window::create(): failed to create an OpenGL 4.4 GLFW window"
 			);
 		}
 		glfwMakeContextCurrent(m_window);
@@ -88,7 +88,7 @@ public:
 		// load OpenGL 4.4
 		if (!gladLoadGL(glfwGetProcAddress)) {
 			PROGRAM_ERROR(
-				"bwgl::Window::create(): failed to initialize GLAD"
+				"Window::create(): failed to initialize GLAD"
 			);
 		}
 

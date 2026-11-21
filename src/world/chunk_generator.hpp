@@ -21,7 +21,7 @@ public:
         const int MAX_HEIGHT = int(CHUNKS_Y * CHUNK_SIZE - 1);
         const int HEIGHT_INVALID = 0x3f3f3f3f;
 
-        if (firstChunk || (c_x != current_x || c_z != current_z)) {
+        if (firstChunk || c_x != current_x || c_z != current_z) {
             current_x = c_x;
             current_z = c_z;
 
@@ -113,6 +113,7 @@ public:
 
                 int worldY = c_y * CHUNK_SIZE + y;
 
+                // determine the block by height
                 if (worldY < height) {
                     block = worldY < 72 && worldY > 60 ? BLOCK_DIRT : BLOCK_STONE;
                     chunks[i].empty = false;

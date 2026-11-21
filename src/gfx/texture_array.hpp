@@ -44,7 +44,7 @@ public:
 
 		if (!data) {
 			PROGRAM_WARNING(
-				"bwgl::TextureCache::load(): failed to load image data from:\n",
+				"TextureArray::load(): failed to load image data from:\n",
 				"=> ",
 				filepath
 			);
