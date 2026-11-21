@@ -96,6 +96,7 @@ public:
 
     World() : 
         chunks(std::make_unique<Chunk[]>(chunkCount)),
+        containsGeometry(std::make_unique<bool[]>(chunkCount)),
         offsets(std::make_unique<glm::vec4[]>(CHUNKS_X * CHUNKS_Y * CHUNKS_Z)),
         indicesCount(std::make_unique<uint32[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)),
         VAOs(std::make_unique<GLuint[]>(CHUNKS_X * CHUNKS_Y * CHUNKS_Z)),
@@ -106,15 +107,17 @@ public:
         int seed = rand();
         chunkGenerator.create(seed);
 
-        containsGeometry.fill(false);
+        for (int i = 0; i < chunkCount; i++) {
+            containsGeometry[i] = false;
+        }
     }
 private:
     ChunkGenerator chunkGenerator;
 
-    static const int chunkCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;
+    const int chunkCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;
 	std::unique_ptr<Chunk[]> chunks;
 
-    std::array<bool, chunkCount> containsGeometry;
+    std::unique_ptr<bool[]> containsGeometry;
 
     void drawChunk(int index) {
         if (!containsGeometry[index]) return;
