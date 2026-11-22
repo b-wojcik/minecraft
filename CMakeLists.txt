@@ -52,24 +52,45 @@ add_executable(
 
     # Game
     src/main.cpp
-    src/world/world.hpp
-    src/world/chunk_generator.hpp
-    src/world/face_generator.hpp
-    src/world/world_constants.hpp
+    
+    src/game/world/world.h
+    src/game/world/world.cpp
+
+    src/game/world/chunk_generator.h
+    src/game/world/chunk_generator.cpp
+
+    src/game/world/face_generator.h
+    src/game/world/world_constants.h
+
+    src/game/game_manager.h
+    src/game/game_manager.cpp
 
     # Extra
     src/third_party/stb_image.c
 
     # Core
-    src/core/debug.hpp
-    src/core/input.hpp
-    src/core/window.hpp
+    src/engine/framework.h
+    
+    src/engine/core/keycode.h
+    src/engine/core/input.h
+    src/engine/core/input.cpp
+
+    src/engine/core/debug.h
+    src/engine/core/window.h
+    src/engine/core/window.cpp
 
     # Gfx
-    src/gfx/shader_cache.hpp
-    src/gfx/camera/camera.hpp
-    src/gfx/camera/fp_camera.hpp
-    src/gfx/texture_array.hpp
+    src/engine/gfx/shader_cache.h
+    src/engine/gfx/shader_cache.cpp
+
+    src/engine/gfx/texture_array.h
+    src/engine/gfx/texture_array.cpp
+
+    src/engine/gfx/camera/camera.h
+    src/engine/gfx/camera/camera.cpp
+    
+    src/engine/gfx/camera/fp_camera.h
+    src/engine/gfx/camera/fp_camera.cpp
 )
 
 target_compile_features(
