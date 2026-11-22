@@ -1,5 +1,7 @@
 #pragma once
 
+#define PROGRAM_DEBUG
+
 #include <iostream>
 #include <utility>
 #include <cstdlib>

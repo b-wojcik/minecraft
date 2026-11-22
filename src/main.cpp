@@ -1,6 +1,4 @@
-﻿#define PROGRAM_DEBUG
-
-#include <iostream>
+﻿#include <iostream>
 #include "game/game_manager.h"
 
 int main() {

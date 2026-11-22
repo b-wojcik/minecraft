@@ -91,6 +91,10 @@ add_executable(
     
     src/engine/gfx/camera/fp_camera.h
     src/engine/gfx/camera/fp_camera.cpp
+
+    # Physics
+    src/engine/physics/aabb.h
+    src/engine/physics/aabb.cpp
 )
 
 target_compile_features(
