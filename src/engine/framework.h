@@ -4,4 +4,4 @@
 #include "gfx/shader_cache.h"
 #include "gfx/texture_array.h"
 #include "gfx/camera/fp_camera.h"
-#include "../engine/gfx/cube_mesh.h"
+#include "gfx/cube_mesh.h"
