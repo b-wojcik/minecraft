@@ -7,8 +7,7 @@ layout (std430, binding = 0) readonly buffer ChunkOffsets {
     vec4 chunkOffset[];
 };
 
-uniform mat4 uProjection;
-uniform mat4 uView;
+uniform mat4 uProjView;
 
 flat out float light;
 flat out float layer;
@@ -57,7 +56,7 @@ void main() {
         bitfieldExtract(aValue, 12, 6)
     );
 
-    gl_Position = uProjection * uView * 
+    gl_Position = uProjView *
     vec4(
         pos + chunkOffset[aChunkIndex].xyz, 1.0
     ); 
