@@ -65,13 +65,6 @@ void Window::create(int width, int height, const char* title, bool resizable) {
 		);
 	}
 
-	// enable depth test
-	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_GREATER);
-	glClearDepth(0.0f);
-
 	// create an appropriate viewport
 	int framebufferWidth;
 	int framebufferHeight;

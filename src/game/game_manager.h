@@ -8,8 +8,18 @@ public:
 	GameManager();
 	void run();
 private:
+	glm::mat4 cameraProjection;
+	glm::mat4 cameraProjView;
 	FPCamera camera;
-	ShaderProgram shaderProgram;
+
+	// shaders
+	ShaderProgram voxelProgram;
+	ShaderProgram highlightProgram;
+
+	glm::vec3 highlightPos;
+	bool drawHighlight;
+
+	CubeMesh highlightMesh;
 
 	World world;
 

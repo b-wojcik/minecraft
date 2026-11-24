@@ -7,9 +7,10 @@
 constexpr uint32 CHUNK_SIZE = 32;
 constexpr uint32 CHUNK_SIZE_SQ = CHUNK_SIZE * CHUNK_SIZE;
 
-constexpr uint32 CHUNKS_X = 16;
+constexpr uint32 CHUNKS_X = 8;
 constexpr uint32 CHUNKS_Y = 8;
-constexpr uint32 CHUNKS_Z = 16;
+constexpr uint32 CHUNKS_Z = 8;
+constexpr uint32 CHUNKS_XY = CHUNKS_X * CHUNKS_Y;
 
 // vertex data packing
 constexpr uint32 SHIFT_POS_X = 0;

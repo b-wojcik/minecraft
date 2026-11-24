@@ -26,10 +26,43 @@ void GameManager::run() {
 void GameManager::draw() {
 	Window::get().setClearColor(0.39f, 0.70f, 0.96f);
 
-	ShaderCache::get().use(shaderProgram);
-	ShaderCache::get().setMat4(shaderProgram, "uView", camera.getView());
+	cameraProjView = cameraProjection * camera.getView();
+
+	// draw the world
+	ShaderCache::get().use(voxelProgram);
+
+	ShaderCache::get().setMat4(
+		voxelProgram, 
+		"uProjView", 
+		cameraProjView
+	);
+
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
 
 	world.draw();
+
+	if (!drawHighlight) return;
+
+	// draw the block highlight
+	ShaderCache::get().use(highlightProgram);
+
+	ShaderCache::get().setMat4(
+		highlightProgram,
+		"uProjView",
+		cameraProjView
+	);
+
+	ShaderCache::get().setVec3(
+		highlightProgram,
+		"uPosition",
+		highlightPos
+	);
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+
+	highlightMesh.draw();
 }
 
 void GameManager::update(float deltaTime) {
@@ -50,6 +83,17 @@ void GameManager::update(float deltaTime) {
 	}
 
 	camera.update(deltaTime);
+
+	const float range = 4.5f;
+	highlightPos = world.raycastForBlock(
+		camera.getPosition(), 
+		camera.getDirection(), 
+		range, 
+		drawHighlight
+	);
+
+	if (!drawHighlight) return;
+	highlightPos += glm::vec3(0.5f);
 }
 
 void GameManager::initialize() {
@@ -68,16 +112,32 @@ void GameManager::initialize() {
 	// MSAA
 	glEnable(GL_MULTISAMPLE);
 
-	camera.create(90.0f, 0.8f, 64.0f);
+	// enable depth test
+	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
-	shaderProgram = ShaderCache::get().load(
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_GREATER);
+	glClearDepth(0.0f);
+
+	// enable blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	camera.create(90.0f, 0.8f, 16.0f);
+	cameraProjection = camera.getProjection();
+
+	voxelProgram = ShaderCache::get().load(
 		"assets/shaders/voxel.vert",
 		"assets/shaders/voxel.frag"
 	);
 
-	ShaderCache::get().use(shaderProgram);
-	ShaderCache::get().setMat4(shaderProgram, "uProjection", camera.getProjection());
-	ShaderCache::get().setInt(shaderProgram, "uFaceTexture", 0);
+	highlightProgram = ShaderCache::get().load(
+		"assets/shaders/highlight.vert",
+		"assets/shaders/highlight.frag"
+	);
+
+	ShaderCache::get().use(voxelProgram);
+	ShaderCache::get().setInt(voxelProgram, "uFaceTexture", 0);
 
 	loadTextures();
 
@@ -85,6 +145,8 @@ void GameManager::initialize() {
 	float t = Window::get().time();
 	world.create(camera);
 	std::cout << "TOTAL TIME: " << Window::get().time() - t << '\n';
+
+	highlightMesh.create();
 }
 
 void GameManager::loadTextures() {

@@ -81,6 +81,96 @@ void World::draw() {
     }
 }
 
+glm::vec3 World::raycastForBlock(
+    const glm::vec3& position,
+    const glm::vec3& direction,
+    float range,
+    bool& success
+) {
+    success = false;
+
+    const float EPS = 0.05f;
+    const glm::vec3 step = direction * EPS;
+
+    const glm::vec3 maxBound(
+        float(CHUNKS_X) * CHUNK_SIZE, 
+        float(CHUNKS_Y) * CHUNK_SIZE, 
+        float(CHUNKS_Z) * CHUNK_SIZE
+    );
+
+    glm::vec3 pos = position - step;
+
+    int pos_x, pos_y, pos_z;
+    int chunk_x, chunk_y, chunk_z;
+    int block_x, block_y, block_z;
+
+    const int maxStepCount = int(ceil(range / EPS));
+    for (int i = 0; i < maxStepCount; i++) {
+        pos += step;
+
+        if (
+            pos.x < 0.0f || 
+            pos.y < 0.0f || 
+            pos.z < 0.0f
+        ) continue;
+
+        if (
+            pos.x > maxBound.x ||
+            pos.y > maxBound.y ||
+            pos.z > maxBound.z
+        ) continue;
+
+        // TODO: try to omit doing floor all the time
+        pos_x = int(std::floor(pos.x));
+        pos_y = int(std::floor(pos.y));
+        pos_z = int(std::floor(pos.z));
+
+        chunk_x = pos_x / CHUNK_SIZE;
+        chunk_y = pos_y / CHUNK_SIZE;
+        chunk_z = pos_z / CHUNK_SIZE;
+
+        block_x = pos_x - chunk_x * CHUNK_SIZE;
+        block_y = pos_y - chunk_y * CHUNK_SIZE;
+        block_z = pos_z - chunk_z * CHUNK_SIZE;
+
+        int currentChunk = chunk_z * CHUNKS_XY + chunk_y * CHUNKS_X + chunk_x;
+        int blockIndex = block_z * CHUNK_SIZE_SQ + block_y * CHUNK_SIZE + block_x;
+
+        if (chunks[currentChunk].data[blockIndex] == BLOCK_AIR) continue;
+    
+        // isAir uses local chunk coordinates
+        current_x = chunk_x;
+        current_y = chunk_y;
+        current_z = chunk_z;
+
+        bool isBlockHidden = !(
+            isAir(block_x, block_y + 1, block_z) ||
+            isAir(block_x, block_y - 1, block_z) ||
+            isAir(block_x + 1, block_y, block_z) ||
+            isAir(block_x - 1, block_y, block_z) ||
+            isAir(block_x, block_y, block_z + 1) ||
+            isAir(block_x, block_y, block_z - 1)
+        );
+
+        if (isBlockHidden) {
+            pos -= step;
+
+            pos_x = int(std::floor(pos.x));
+            pos_y = int(std::floor(pos.y)) - 1;
+            pos_z = int(std::floor(pos.z));
+        }
+
+        success = true;
+        break;
+    }
+
+    return glm::vec3(
+        pos_x,
+        pos_y,
+        pos_z
+    );
+}
+
 void World::drawChunk(int index) {
     if (!containsGeometry[index]) return;
 
@@ -176,6 +266,7 @@ bool World::isAir(int x, int y, int z) {
     int ny = current_y;
     int nz = current_z;
 
+    // find x
     if (x < 0) {
         nx--;
         x += CHUNK_SIZE;
@@ -185,6 +276,9 @@ bool World::isAir(int x, int y, int z) {
         x -= CHUNK_SIZE;
     }
 
+    if (nx < 0 || nx >= CHUNKS_X) return true;
+
+    // find y
     if (y < 0) {
         ny--;
         y += CHUNK_SIZE;
@@ -194,6 +288,9 @@ bool World::isAir(int x, int y, int z) {
         y -= CHUNK_SIZE;
     }
 
+    if (ny < 0 || ny >= CHUNKS_Y) return true;
+
+    // find z
     if (z < 0) {
         nz--;
         z += CHUNK_SIZE;
@@ -203,18 +300,12 @@ bool World::isAir(int x, int y, int z) {
         z -= CHUNK_SIZE;
     }
 
-    if (
-        nx < 0 || nx >= CHUNKS_X ||
-        ny < 0 || ny >= CHUNKS_Y ||
-        nz < 0 || nz >= CHUNKS_Z
-        ) {
-        return true;
-    }
+    if (nz < 0 || nz >= CHUNKS_Z) return true;
 
-    const int chunkIndex = nz * CHUNKS_X * CHUNKS_Y + ny * CHUNKS_X + nx;
-    return chunks[chunkIndex].data[
+    // assumes that BLOCK_AIR = 0
+    return !chunks[nz * CHUNKS_XY + ny * CHUNKS_X + nx].data[
         z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
-    ] == BLOCK_AIR;
+    ];
 }
 
 void World::uploadMesh() {

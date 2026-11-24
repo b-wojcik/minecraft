@@ -13,9 +13,10 @@ public:
 	void update(float deltaTime);
 
 	glm::vec3& getPosition();
+	
+	const glm::vec3 getDirection() const;
 
 	const glm::mat4& getView() const;
-
 	const glm::mat4& getProjection() const;
 
 	FPCamera() = default;

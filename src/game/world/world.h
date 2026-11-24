@@ -16,6 +16,13 @@ public:
     void create(FPCamera& camera);
     void draw();
 
+    glm::vec3 raycastForBlock(
+        const glm::vec3& position, 
+        const glm::vec3& direction, 
+        float range,
+        bool& success
+    );
+
     World();
 private:
     ChunkGenerator chunkGenerator;
