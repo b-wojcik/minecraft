@@ -80,6 +80,9 @@ add_executable(
     src/engine/core/window.cpp
 
     # Gfx
+    src/engine/gfx/cube_mesh.h
+    src/engine/gfx/cube_mesh.cpp
+
     src/engine/gfx/shader_cache.h
     src/engine/gfx/shader_cache.cpp
 
