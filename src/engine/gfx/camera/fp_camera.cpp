@@ -103,7 +103,7 @@ glm::vec3& FPCamera::getPosition() {
 	return camera.position;
 }
 
-const glm::vec3 FPCamera::getDirection() const {
+const glm::vec3& FPCamera::getDirection() const {
 	return camera.direction;
 }
 

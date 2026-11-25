@@ -49,9 +49,11 @@ private:
 
     void generateMeshes();
 
+    void generateChunkMesh(int c_x, int c_y, int c_z);
     void addVoxel(Block block, int x, int y, int z, uint32& indexOffset);
     bool isAir(int x, int y, int z);
 
+    bool worldCreated = false;
     void uploadMesh();
 
     const int offsetCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;

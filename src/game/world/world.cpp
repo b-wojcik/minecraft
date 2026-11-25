@@ -45,6 +45,8 @@ void World::create(FPCamera& camera) {
     std::cout << "GENERATE MESHES END\n";
     std::cout << "TOOK: " << Window::get().time() - t << '\n' << '\n';
 
+    worldCreated = true;
+
     vertices.clear();
     indices.clear();
 
@@ -161,6 +163,13 @@ glm::vec3 World::raycastForBlock(
         }
 
         success = true;
+
+        // breaking blocks accross chunk borders should be handled
+        if (Input::get().isKeyDown(KeyCode::Mouse1)) {
+            chunks[currentChunk].data[blockIndex] = BLOCK_AIR;
+            generateChunkMesh(chunk_x, chunk_y, chunk_z);
+        }
+
         break;
     }
 
@@ -195,34 +204,38 @@ void World::generateMeshes() {
     for (int c_z = 0; c_z < CHUNKS_Z; c_z++)
     for (int c_y = 0; c_y < CHUNKS_Y; c_y++)
     for (int c_x = 0; c_x < CHUNKS_X; c_x++) {
-        indexOffset = 0;
+        generateChunkMesh(c_x, c_y, c_z);
+    }
+}
 
-        currentChunk = c_z * CHUNKS_X * CHUNKS_Y + c_y * CHUNKS_X + c_x;
+void World::generateChunkMesh(int c_x, int c_y, int c_z) {
+    uint32 indexOffset = 0;
 
-        if (chunks[currentChunk].empty) continue;
+    currentChunk = c_z * CHUNKS_X * CHUNKS_Y + c_y * CHUNKS_X + c_x;
 
-        current_x = c_x;
-        current_y = c_y;
-        current_z = c_z;
+    if (chunks[currentChunk].empty) return;
 
-        vertices.clear();
-        indices.clear();
+    current_x = c_x;
+    current_y = c_y;
+    current_z = c_z;
 
-        for (int z = 0; z < CHUNK_SIZE; z++)
-        for (int y = 0; y < CHUNK_SIZE; y++)
-        for (int x = 0; x < CHUNK_SIZE; x++) {
-            Block block = chunks[currentChunk].data[
-                z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
-            ];
-            addVoxel(block, x, y, z, indexOffset);
-        }
+    vertices.clear();
+    indices.clear();
 
-        bool shouldUpload = containsGeometry[currentChunk] = vertices.size() > 0;
-        indicesCount[currentChunk] = indices.size();
+    for (int z = 0; z < CHUNK_SIZE; z++)
+    for (int y = 0; y < CHUNK_SIZE; y++)
+    for (int x = 0; x < CHUNK_SIZE; x++) {
+        Block block = chunks[currentChunk].data[
+            z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
+        ];
+        addVoxel(block, x, y, z, indexOffset);
+    }
 
-        if (shouldUpload) {
-            uploadMesh();
-        }
+    bool shouldUpload = containsGeometry[currentChunk] = vertices.size() > 0;
+    indicesCount[currentChunk] = indices.size();
+
+    if (shouldUpload) {
+        uploadMesh();
     }
 }
 
@@ -309,6 +322,12 @@ bool World::isAir(int x, int y, int z) {
 }
 
 void World::uploadMesh() {
+    if (worldCreated) {
+        glDeleteVertexArrays(1, &VAOs[currentChunk]);
+        glDeleteBuffers(1, &VBOs[currentChunk]);
+        glDeleteBuffers(1, &EBOs[currentChunk]);
+    }
+
     // generate buffers
     glGenVertexArrays(1, &VAOs[currentChunk]);
     glBindVertexArray(VAOs[currentChunk]);
