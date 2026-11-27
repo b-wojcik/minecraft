@@ -16,11 +16,16 @@ public:
     void create(FPCamera& camera);
     void draw();
 
+    void replaceBlock(const glm::vec3& position, Block block);
+
+    // assumes that direction is normalized
+    // return the intersected block position
     glm::vec3 raycastForBlock(
         const glm::vec3& position, 
         const glm::vec3& direction, 
         float range,
-        bool& success
+        bool& success,
+        glm::vec3& normal
     );
 
     World();
@@ -42,10 +47,10 @@ private:
 	std::vector<Vertex> vertices;
 	std::vector<uint32> indices;
 
-    int currentChunk = 0;
-    int current_x = 0;
-    int current_y = 0;
-    int current_z = 0;
+    int m_currentChunk = 0;
+    int m_current_x = 0;
+    int m_current_y = 0;
+    int m_current_z = 0;
 
     void generateMeshes();
 
@@ -53,7 +58,7 @@ private:
     void addVoxel(Block block, int x, int y, int z, uint32& indexOffset);
     bool isAir(int x, int y, int z);
 
-    bool worldCreated = false;
+    bool m_worldCreated = false;
     void uploadMesh();
 
     const int offsetCount = CHUNKS_X * CHUNKS_Y * CHUNKS_Z;

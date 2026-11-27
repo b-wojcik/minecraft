@@ -21,8 +21,7 @@ void Camera::createPerspective(
 
 	updateView();
 
-	// https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
-	// math magic
+	// thanks to https://nlguillemot.wordpress.com/2016/12/07/reversed-z-in-opengl/
 
 	float f = 1.0f / tan(glm::radians(fov) * 0.5f);
 	projection = glm::mat4(0.0f);

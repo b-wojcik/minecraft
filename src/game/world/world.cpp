@@ -1,5 +1,6 @@
 #include "world.h"
 
+#include <cstdlib>
 #include <random>
 
 void World::create(FPCamera& camera) {
@@ -15,12 +16,11 @@ void World::create(FPCamera& camera) {
 
     // TODO: !!! not cache friendly, consider changing indexing order for chunks
     // it could make some sense for rendering too, because fully covered chunks do not need to be drawn
-    // currently you do not check if a chunk even contains any geometry (the case mentioned above)!!!
 
     for (int c_z = 0; c_z < CHUNKS_Z; c_z++)
     for (int c_x = 0; c_x < CHUNKS_X; c_x++)
     for (int c_y = 0; c_y < CHUNKS_Y; c_y++) {
-        int i = c_z * CHUNKS_X * CHUNKS_Y + c_y * CHUNKS_X + c_x;
+        int i = c_z * CHUNKS_XY + c_y * CHUNKS_X + c_x;
         chunks[i].empty = true;
         chunkGenerator.createChunk(c_x, c_y, c_z, chunks);
     }
@@ -45,7 +45,7 @@ void World::create(FPCamera& camera) {
     std::cout << "GENERATE MESHES END\n";
     std::cout << "TOOK: " << Window::get().time() - t << '\n' << '\n';
 
-    worldCreated = true;
+    m_worldCreated = true;
 
     vertices.clear();
     indices.clear();
@@ -63,7 +63,7 @@ void World::create(FPCamera& camera) {
     int c_z = CHUNKS_Z / 2;
 
     for (int c_y = 0; c_y < CHUNKS_Y; c_y++) {
-        int i = c_z * CHUNKS_X * CHUNKS_Y + c_y * CHUNKS_X + c_x;
+        int i = c_z * CHUNKS_XY + c_y * CHUNKS_X + c_x;
         if (chunks[i].empty) {
             position.y = CHUNK_SIZE * c_y + 2.0f;
             break;
@@ -83,100 +83,257 @@ void World::draw() {
     }
 }
 
+// TODO: handle chunk borders
+void World::replaceBlock(const glm::vec3& position, Block block) {
+    int blockX = int(position.x);
+    int blockY = int(position.y);
+    int blockZ = int(position.z);
+
+    if (
+        blockX < 0 || blockY < 0 || blockZ < 0 ||
+        blockX >= CHUNKS_X * CHUNK_SIZE ||
+        blockY >= CHUNKS_Y * CHUNK_SIZE ||
+        blockZ >= CHUNKS_Z * CHUNK_SIZE
+    ) return;
+
+    int chunkX = blockX / CHUNK_SIZE;
+    int chunkY = blockY / CHUNK_SIZE;
+    int chunkZ = blockZ / CHUNK_SIZE;
+
+    blockX -= chunkX * CHUNK_SIZE;
+    blockY -= chunkY * CHUNK_SIZE;
+    blockZ -= chunkZ * CHUNK_SIZE;
+
+    int blockIndex = blockZ * CHUNK_SIZE_SQ + blockY * CHUNK_SIZE + blockX;
+    int chunkIndex = chunkZ * CHUNKS_XY + chunkY * CHUNKS_X + chunkX;
+
+    block = chunks[chunkIndex].data[blockIndex] = block;
+
+    generateChunkMesh(chunkX, chunkY, chunkZ);
+}
+
+// TODO: use the range variable
 glm::vec3 World::raycastForBlock(
     const glm::vec3& position,
     const glm::vec3& direction,
     float range,
-    bool& success
+    bool& success,
+    glm::vec3& normal
 ) {
-    success = false;
+    // thanks to http://www.cse.yorku.ca/~amana/research/grid.pdf
 
-    const float EPS = 0.05f;
-    const glm::vec3 step = direction * EPS;
+    int stepX = 0;
+    if (direction.x > 0.0f) stepX = 1;
+    else if (direction.x < 0.0f) stepX = -1;
 
-    const glm::vec3 maxBound(
-        float(CHUNKS_X) * CHUNK_SIZE, 
-        float(CHUNKS_Y) * CHUNK_SIZE, 
-        float(CHUNKS_Z) * CHUNK_SIZE
-    );
+    int stepY = 0;
+    if (direction.y > 0.0f) stepY = 1;
+    else if (direction.y < 0.0f) stepY = -1;
 
-    glm::vec3 pos = position - step;
+    int stepZ = 0;
+    if (direction.z > 0.0f) stepZ = 1;
+    else if (direction.z < 0.0f) stepZ = -1;
 
-    int pos_x, pos_y, pos_z;
-    int chunk_x, chunk_y, chunk_z;
-    int block_x, block_y, block_z;
+    int blockX = int(position.x);
+    int blockY = int(position.y);
+    int blockZ = int(position.z);
 
-    const int maxStepCount = int(ceil(range / EPS));
-    for (int i = 0; i < maxStepCount; i++) {
-        pos += step;
+    const float INF = 32.0f;
 
-        if (
-            pos.x < 0.0f || 
-            pos.y < 0.0f || 
-            pos.z < 0.0f
-        ) continue;
-
-        if (
-            pos.x > maxBound.x ||
-            pos.y > maxBound.y ||
-            pos.z > maxBound.z
-        ) continue;
-
-        // TODO: try to omit doing floor all the time
-        pos_x = int(std::floor(pos.x));
-        pos_y = int(std::floor(pos.y));
-        pos_z = int(std::floor(pos.z));
-
-        chunk_x = pos_x / CHUNK_SIZE;
-        chunk_y = pos_y / CHUNK_SIZE;
-        chunk_z = pos_z / CHUNK_SIZE;
-
-        block_x = pos_x - chunk_x * CHUNK_SIZE;
-        block_y = pos_y - chunk_y * CHUNK_SIZE;
-        block_z = pos_z - chunk_z * CHUNK_SIZE;
-
-        int currentChunk = chunk_z * CHUNKS_XY + chunk_y * CHUNKS_X + chunk_x;
-        int blockIndex = block_z * CHUNK_SIZE_SQ + block_y * CHUNK_SIZE + block_x;
-
-        if (chunks[currentChunk].data[blockIndex] == BLOCK_AIR) continue;
-    
-        // isAir uses local chunk coordinates
-        current_x = chunk_x;
-        current_y = chunk_y;
-        current_z = chunk_z;
-
-        bool isBlockHidden = !(
-            isAir(block_x, block_y + 1, block_z) ||
-            isAir(block_x, block_y - 1, block_z) ||
-            isAir(block_x + 1, block_y, block_z) ||
-            isAir(block_x - 1, block_y, block_z) ||
-            isAir(block_x, block_y, block_z + 1) ||
-            isAir(block_x, block_y, block_z - 1)
-        );
-
-        if (isBlockHidden) {
-            pos -= step;
-
-            pos_x = int(std::floor(pos.x));
-            pos_y = int(std::floor(pos.y)) - 1;
-            pos_z = int(std::floor(pos.z));
-        }
-
-        success = true;
-
-        // breaking blocks accross chunk borders should be handled
-        if (Input::get().isKeyDown(KeyCode::Mouse1)) {
-            chunks[currentChunk].data[blockIndex] = BLOCK_AIR;
-            generateChunkMesh(chunk_x, chunk_y, chunk_z);
-        }
-
-        break;
+    // find the t at which the ray crosses the first block boundary for each axis
+    // x(t) = t * direction.x and we solve x(t) = "proper edge which depends on direction" 
+    float maxX = INF;
+    if (stepX != 0.0f) {
+        maxX = stepX > 0.0f ? blockX + 1 - position.x : blockX - position.x;
+        maxX /= direction.x;
     }
 
+    float maxY = INF;
+    if (stepY != 0.0f) {
+        maxY = stepY > 0.0f ? blockY + 1 - position.y : blockY - position.y;
+        maxY /= direction.y;
+    }
+
+    float maxZ = INF;
+    if (stepZ != 0.0f) {
+        maxZ = stepZ > 0.0f ? blockZ + 1 - position.z : blockZ - position.z;
+        maxZ /= direction.z;
+    }
+
+    // find the t needed to cross a boundary on each axis
+    // x(t) = t * direction.x => t = x(t) / direction.x and we want x(t) = 1, ...
+    // note that direction is normalized
+    float deltaX = stepX != 0.0f ? 1.0f / std::abs(direction.x) : INF;
+    float deltaY = stepY != 0.0f ? 1.0f / std::abs(direction.y) : INF;
+    float deltaZ = stepZ != 0.0f ? 1.0f / std::abs(direction.z) : INF;
+
+    int chunkX = blockX / CHUNK_SIZE;
+    int chunkY = blockY / CHUNK_SIZE;
+    int chunkZ = blockZ / CHUNK_SIZE;
+
+    // this step ensures that blockX = position.x % CHUNK_SIZE, ...
+    blockX -= chunkX * CHUNK_SIZE;
+    blockY -= chunkY * CHUNK_SIZE;
+    blockZ -= chunkZ * CHUNK_SIZE;
+
+    // for identifying the current block
+    int blockIndex = blockZ * CHUNK_SIZE_SQ + blockY * CHUNK_SIZE + blockX;
+
+    int currentChunk = chunkZ * CHUNKS_XY + chunkY * CHUNKS_X + chunkX;
+    bool chunkChanged;
+
+    // skip the rest if outside the world
+    if (
+        currentChunk < 0 ||
+        currentChunk >= chunkCount ||
+        blockIndex < 0 ||
+        blockIndex >= CHUNK_SIZE_SQ * CHUNK_SIZE
+    ) {
+        success = false;
+        return glm::vec3(0.0f);
+    }
+
+    Block block = chunks[currentChunk].data[blockIndex];
+    normal = glm::vec3(0.0f);
+
+    // for being inside of a block
+    if (block != BLOCK_AIR) {
+        success = true;
+        
+        return glm::vec3(
+            int(position.x),
+            int(position.y),
+            int(position.z)
+        );
+    }
+
+    // for find out the normal vector
+    glm::vec3 stepTaken = glm::vec3(0.0f);
+
+    success = false;
+    do {
+        chunkChanged = true;
+
+        stepTaken.x = 0.0f;
+        stepTaken.y = 0.0f;
+        stepTaken.z = 0.0f;
+
+        if (maxX < maxY) {
+            if (maxX < maxZ) {
+                blockX += stepX;
+                stepTaken.x = stepX;
+
+                // check if the chunk should change
+                if (blockX == CHUNK_SIZE) {
+                    chunkX++;
+                    blockX = 0;
+                }
+                else if (blockX == -1) {
+                    chunkX--;
+                    blockX = CHUNK_SIZE - 1;
+                }
+                else chunkChanged = false;
+
+                // out of bounds
+                if (chunkX < 0 || chunkX >= CHUNKS_X) {
+                    return glm::vec3(0.0f);
+                }
+
+                maxX += deltaX;
+            }
+            else {
+                blockZ += stepZ;
+                stepTaken.z = stepZ;
+
+                // check if the chunk should change
+                if (blockZ == CHUNK_SIZE) {
+                    chunkZ++;
+                    blockZ = 0;
+                }
+                else if (blockZ == -1) {
+                    chunkZ--;
+                    blockZ = CHUNK_SIZE - 1;
+                }
+                else chunkChanged = false;
+
+                // out of bounds
+                if (chunkZ < 0 || chunkZ >= CHUNKS_Z) {
+                    return glm::vec3(0.0f);
+                }
+
+                maxZ += deltaZ;
+            }
+        }
+        else {
+            if (maxY < maxZ) {
+                blockY += stepY;
+                stepTaken.y = stepY;
+
+                // check if the chunk should change
+                if (blockY == CHUNK_SIZE) {
+                    chunkY++;
+                    blockY = 0;
+                }
+                else if (blockY == -1) {
+                    chunkY--;
+                    blockY = CHUNK_SIZE - 1;
+                }
+                else chunkChanged = false;
+
+                // out of bounds
+                if (chunkY < 0 || chunkY >= CHUNKS_Y) {
+                    return glm::vec3(0.0f);
+                }
+
+                maxY += deltaY;
+            }
+            else {
+                blockZ += stepZ;
+                stepTaken.z = stepZ;
+
+                // check if the chunk should change
+                if (blockZ == CHUNK_SIZE) {
+                    chunkZ++;
+                    blockZ = 0;
+                }
+                else if (blockZ == -1) {
+                    chunkZ--;
+                    blockZ = CHUNK_SIZE - 1;
+                }
+                else chunkChanged = false;
+
+                // out of bounds
+                if (chunkZ < 0 || chunkZ >= CHUNKS_Z) {
+                    return glm::vec3(0.0f);
+                }
+
+                maxZ += deltaZ;
+            }
+        }
+
+        blockIndex = blockZ * CHUNK_SIZE_SQ + blockY * CHUNK_SIZE + blockX;
+
+        // calculate a new chunk index only when there was a change 
+        if (chunkChanged) {
+            currentChunk = chunkZ * CHUNKS_XY + chunkY * CHUNKS_X + chunkX;
+        }
+
+        // identify the new block
+        block = chunks[currentChunk].data[blockIndex];
+
+        // calculate the normal vector
+        if (block != BLOCK_AIR) {
+            normal = -stepTaken;
+        }
+    } while (block == BLOCK_AIR);
+
+    success = true;
+
+    // the intersection was found
     return glm::vec3(
-        pos_x,
-        pos_y,
-        pos_z
+        chunkX * CHUNK_SIZE + blockX,
+        chunkY * CHUNK_SIZE + blockY,
+        chunkZ * CHUNK_SIZE + blockZ
     );
 }
 
@@ -211,13 +368,13 @@ void World::generateMeshes() {
 void World::generateChunkMesh(int c_x, int c_y, int c_z) {
     uint32 indexOffset = 0;
 
-    currentChunk = c_z * CHUNKS_X * CHUNKS_Y + c_y * CHUNKS_X + c_x;
+    m_currentChunk = c_z * CHUNKS_XY + c_y * CHUNKS_X + c_x;
 
-    if (chunks[currentChunk].empty) return;
+    if (chunks[m_currentChunk].empty) return;
 
-    current_x = c_x;
-    current_y = c_y;
-    current_z = c_z;
+    m_current_x = c_x;
+    m_current_y = c_y;
+    m_current_z = c_z;
 
     vertices.clear();
     indices.clear();
@@ -225,14 +382,14 @@ void World::generateChunkMesh(int c_x, int c_y, int c_z) {
     for (int z = 0; z < CHUNK_SIZE; z++)
     for (int y = 0; y < CHUNK_SIZE; y++)
     for (int x = 0; x < CHUNK_SIZE; x++) {
-        Block block = chunks[currentChunk].data[
+        Block block = chunks[m_currentChunk].data[
             z * CHUNK_SIZE_SQ + y * CHUNK_SIZE + x
         ];
         addVoxel(block, x, y, z, indexOffset);
     }
 
-    bool shouldUpload = containsGeometry[currentChunk] = vertices.size() > 0;
-    indicesCount[currentChunk] = indices.size();
+    bool shouldUpload = containsGeometry[m_currentChunk] = vertices.size() > 0;
+    indicesCount[m_currentChunk] = indices.size();
 
     if (shouldUpload) {
         uploadMesh();
@@ -275,9 +432,9 @@ void World::addVoxel(Block block, int x, int y, int z, uint32& indexOffset) {
 
 bool World::isAir(int x, int y, int z) {
     // to find the chunk in which you should land
-    int nx = current_x;
-    int ny = current_y;
-    int nz = current_z;
+    int nx = m_current_x;
+    int ny = m_current_y;
+    int nz = m_current_z;
 
     // find x
     if (x < 0) {
@@ -322,18 +479,18 @@ bool World::isAir(int x, int y, int z) {
 }
 
 void World::uploadMesh() {
-    if (worldCreated) {
-        glDeleteVertexArrays(1, &VAOs[currentChunk]);
-        glDeleteBuffers(1, &VBOs[currentChunk]);
-        glDeleteBuffers(1, &EBOs[currentChunk]);
+    if (m_worldCreated) {
+        glDeleteVertexArrays(1, &VAOs[m_currentChunk]);
+        glDeleteBuffers(1, &VBOs[m_currentChunk]);
+        glDeleteBuffers(1, &EBOs[m_currentChunk]);
     }
 
     // generate buffers
-    glGenVertexArrays(1, &VAOs[currentChunk]);
-    glBindVertexArray(VAOs[currentChunk]);
+    glGenVertexArrays(1, &VAOs[m_currentChunk]);
+    glBindVertexArray(VAOs[m_currentChunk]);
 
-    glGenBuffers(1, &VBOs[currentChunk]);
-    glBindBuffer(GL_ARRAY_BUFFER, VBOs[currentChunk]);
+    glGenBuffers(1, &VBOs[m_currentChunk]);
+    glBindBuffer(GL_ARRAY_BUFFER, VBOs[m_currentChunk]);
 
     // upload vertex data
     glBufferData(
@@ -362,7 +519,7 @@ void World::uploadMesh() {
         GL_UNSIGNED_INT,
         sizeof(uint32),
         reinterpret_cast<void*>(
-            static_cast<uintptr_t>(currentChunk * sizeof(uint32))
+            static_cast<uintptr_t>(m_currentChunk * sizeof(uint32))
             )
     );
     glEnableVertexAttribArray(1);
@@ -370,8 +527,8 @@ void World::uploadMesh() {
     // one index per chunk for each vertex
     glVertexAttribDivisor(1, 1);
 
-    glGenBuffers(1, &EBOs[currentChunk]);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOs[currentChunk]);
+    glGenBuffers(1, &EBOs[m_currentChunk]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBOs[m_currentChunk]);
 
     // upload indices
     glBufferData(
@@ -386,7 +543,7 @@ void World::generateOffsets() {
     for (int z = 0; z < CHUNKS_Z; z++)
     for (int y = 0; y < CHUNKS_Y; y++)
     for (int x = 0; x < CHUNKS_X; x++) {
-        int index = z * CHUNKS_X * CHUNKS_Y + y * CHUNKS_X + x;
+        int index = z * CHUNKS_XY + y * CHUNKS_X + x;
 
         offsets[index] = glm::vec4(
             float(x * CHUNK_SIZE),
@@ -398,7 +555,7 @@ void World::generateOffsets() {
 }
 
 void World::uploadOffsets() {
-    uint32 indexData[CHUNKS_X * CHUNKS_Y * CHUNKS_Z];
+    uint32 indexData[CHUNKS_XY * CHUNKS_Z];
 
     for (int i = 0; i < offsetCount; i++) {
         indexData[i] = i;
@@ -436,11 +593,11 @@ void World::uploadOffsets() {
 World::World() :
     chunks(std::make_unique<Chunk[]>(chunkCount)),
     containsGeometry(std::make_unique<bool[]>(chunkCount)),
-    offsets(std::make_unique<glm::vec4[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)),
-    indicesCount(std::make_unique<uint32[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)),
-    VAOs(std::make_unique<GLuint[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)),
-    VBOs(std::make_unique<GLuint[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)),
-    EBOs(std::make_unique<GLuint[]>(CHUNKS_X* CHUNKS_Y* CHUNKS_Z)) {
+    offsets(std::make_unique<glm::vec4[]>(CHUNKS_XY * CHUNKS_Z)),
+    indicesCount(std::make_unique<uint32[]>(CHUNKS_XY * CHUNKS_Z)),
+    VAOs(std::make_unique<GLuint[]>(CHUNKS_XY * CHUNKS_Z)),
+    VBOs(std::make_unique<GLuint[]>(CHUNKS_XY * CHUNKS_Z)),
+    EBOs(std::make_unique<GLuint[]>(CHUNKS_XY * CHUNKS_Z)) {
 
     srand(time(NULL));
     int seed = rand();

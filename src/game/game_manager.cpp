@@ -84,15 +84,26 @@ void GameManager::update(float deltaTime) {
 
 	camera.update(deltaTime);
 
+	glm::vec3 normal;
+
 	const float range = 4.5f;
 	highlightPos = world.raycastForBlock(
 		camera.getPosition(), 
 		camera.getDirection(), 
 		range, 
-		drawHighlight
+		drawHighlight,
+		normal
 	);
 
 	if (!drawHighlight) return;
+
+	if (Input::get().didKeyClick(KeyCode::Mouse1)) {
+		world.replaceBlock(highlightPos, BLOCK_AIR);
+	}
+	if (Input::get().didKeyClick(KeyCode::Mouse2)) {
+		world.replaceBlock(highlightPos + normal, BLOCK_DIRT);
+	}
+
 	highlightPos += glm::vec3(0.5f);
 }
 
