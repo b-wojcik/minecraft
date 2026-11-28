@@ -37,9 +37,6 @@ void GameManager::draw() {
 		cameraProjView
 	);
 
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
-
 	world.draw();
 
 	if (!drawHighlight) return;
@@ -59,8 +56,11 @@ void GameManager::draw() {
 		highlightPos
 	);
 
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
+	ShaderCache::get().setFloat(
+		highlightProgram,
+		"uTime",
+		Window::get().time()
+	);
 
 	highlightMesh.draw();
 }
@@ -126,7 +126,7 @@ void GameManager::initialize() {
 	glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
 
 	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_GREATER);
+	glDepthFunc(GL_GEQUAL);
 	glClearDepth(0.0f);
 
 	// enable blending

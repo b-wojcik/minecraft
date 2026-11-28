@@ -12,7 +12,6 @@ uniform mat4 uProjView;
 flat out float light;
 flat out float layer;
 flat out vec3 normal;
-
 out vec2 uv;
 
 void main() {
