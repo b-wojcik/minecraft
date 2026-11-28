@@ -9,7 +9,8 @@ uniform float uTime;
 void main() {
     vec3 pos = position + vec3(0.5);
 
-    float frameMin = 0.04;
+    // (1 / 16) * 0.5
+    float frameMin = 0.03125;
     float frameMax = 1.0 - frameMin;
 
     // TODO: use a mathematical formula, not if statements
