@@ -86,12 +86,11 @@ void GameManager::update(float deltaTime) {
 
 	glm::vec3 normal;
 
-	const float range = 4.5f;
-	highlightPos = world.raycastForBlock(
-		camera.getPosition(), 
-		camera.getDirection(), 
-		range, 
-		drawHighlight,
+	drawHighlight = world.raycastForBlock(
+		camera.getPosition(),
+		camera.getDirection(),
+		4.5f,
+		highlightPos,
 		normal
 	);
 
@@ -101,7 +100,7 @@ void GameManager::update(float deltaTime) {
 		world.replaceBlock(highlightPos, BLOCK_AIR);
 	}
 	if (Input::get().didKeyClick(KeyCode::Mouse2)) {
-		world.replaceBlock(highlightPos + normal, BLOCK_DIRT);
+		world.replaceBlock(highlightPos + normal, BLOCK_SNOW);
 	}
 
 	highlightPos += glm::vec3(0.5f);
@@ -134,7 +133,7 @@ void GameManager::initialize() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	camera.create(90.0f, 0.8f, 16.0f);
+	camera.create(90.0f, 0.8f, 24.0f);
 	cameraProjection = camera.getProjection();
 
 	voxelProgram = ShaderCache::get().load(
@@ -148,7 +147,7 @@ void GameManager::initialize() {
 	);
 
 	ShaderCache::get().use(voxelProgram);
-	ShaderCache::get().setInt(voxelProgram, "uFaceTexture", 0);
+	ShaderCache::get().setInt(voxelProgram, "uTexture", 0);
 
 	loadTextures();
 

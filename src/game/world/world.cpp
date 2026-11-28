@@ -14,9 +14,6 @@ void World::create(FPCamera& camera) {
     float t = Window::get().time();
     std::cout << "CREATE CHUNKS BEGIN\n";
 
-    // TODO: !!! not cache friendly, consider changing indexing order for chunks
-    // it could make some sense for rendering too, because fully covered chunks do not need to be drawn
-
     for (int c_z = 0; c_z < CHUNKS_Z; c_z++)
     for (int c_x = 0; c_x < CHUNKS_X; c_x++)
     for (int c_y = 0; c_y < CHUNKS_Y; c_y++) {
@@ -28,14 +25,8 @@ void World::create(FPCamera& camera) {
     std::cout << "CREATE CHUNKS END\n";
     std::cout << "TOOK: " << Window::get().time() - t << '\n' << '\n';
 
-    t = Window::get().time();
-    std::cout << "GENERATE OFFSETS BEGIN\n";
-
     generateOffsets();
     uploadOffsets();
-
-    std::cout << "GENERATE OFFSETS END\n";
-    std::cout << "TOOK: " << Window::get().time() - t << '\n' << '\n';
 
     t = Window::get().time();
     std::cout << "GENERATE MESHES BEGIN\n";
@@ -83,12 +74,12 @@ void World::draw() {
     }
 }
 
-// TODO: handle chunk borders
 void World::replaceBlock(const glm::vec3& position, Block block) {
     int blockX = int(position.x);
     int blockY = int(position.y);
     int blockZ = int(position.z);
 
+    // dont allow block replacing out of bounds
     if (
         blockX < 0 || blockY < 0 || blockZ < 0 ||
         blockX >= CHUNKS_X * CHUNK_SIZE ||
@@ -107,17 +98,43 @@ void World::replaceBlock(const glm::vec3& position, Block block) {
     int blockIndex = blockZ * CHUNK_SIZE_SQ + blockY * CHUNK_SIZE + blockX;
     int chunkIndex = chunkZ * CHUNKS_XY + chunkY * CHUNKS_X + chunkX;
 
-    block = chunks[chunkIndex].data[blockIndex] = block;
+    auto& chunk = chunks[chunkIndex];
+    if (chunk.empty && block != BLOCK_AIR) {
+        chunk.empty = false;
+    }
+
+    chunk.data[blockIndex] = block;
 
     generateChunkMesh(chunkX, chunkY, chunkZ);
+
+    // update the adjecent chunks if needed
+    if (blockX == 0) {
+        generateChunkMesh(chunkX - 1, chunkY, chunkZ);
+    }
+    else if (blockX == CHUNK_SIZE - 1) {
+        generateChunkMesh(chunkX + 1, chunkY, chunkZ);
+    }
+
+    if (blockY == 0) {
+        generateChunkMesh(chunkX, chunkY - 1, chunkZ);
+    }
+    else if (blockY == CHUNK_SIZE - 1) {
+        generateChunkMesh(chunkX, chunkY + 1, chunkZ);
+    }
+
+    if (blockZ == 0) {
+        generateChunkMesh(chunkX, chunkY, chunkZ - 1);
+    }
+    else if (blockZ == CHUNK_SIZE - 1) {
+        generateChunkMesh(chunkX, chunkY, chunkZ + 1);
+    }
 }
 
-// TODO: use the range variable
-glm::vec3 World::raycastForBlock(
+bool World::raycastForBlock(
     const glm::vec3& position,
     const glm::vec3& direction,
     float range,
-    bool& success,
+    glm::vec3& intersect,
     glm::vec3& normal
 ) {
     // thanks to http://www.cse.yorku.ca/~amana/research/grid.pdf
@@ -137,6 +154,10 @@ glm::vec3 World::raycastForBlock(
     int blockX = int(position.x);
     int blockY = int(position.y);
     int blockZ = int(position.z);
+
+    const int startX = blockX;
+    const int startY = blockY;
+    const int startZ = blockZ;
 
     const float INF = 32.0f;
 
@@ -184,13 +205,14 @@ glm::vec3 World::raycastForBlock(
 
     // skip the rest if outside the world
     if (
+        chunkX >= CHUNKS_X ||
+        chunkY >= CHUNKS_Y ||
+        chunkZ >= CHUNKS_Z ||
         currentChunk < 0 ||
-        currentChunk >= chunkCount ||
         blockIndex < 0 ||
         blockIndex >= CHUNK_SIZE_SQ * CHUNK_SIZE
     ) {
-        success = false;
-        return glm::vec3(0.0f);
+        return false;
     }
 
     Block block = chunks[currentChunk].data[blockIndex];
@@ -198,19 +220,20 @@ glm::vec3 World::raycastForBlock(
 
     // for being inside of a block
     if (block != BLOCK_AIR) {
-        success = true;
-        
-        return glm::vec3(
+        intersect = glm::vec3(
             int(position.x),
             int(position.y),
             int(position.z)
         );
+        
+        return true;
     }
 
-    // for find out the normal vector
+    // for calculating the normal vector
     glm::vec3 stepTaken = glm::vec3(0.0f);
 
-    success = false;
+    float rangeSquared = range * range;
+
     do {
         chunkChanged = true;
 
@@ -236,7 +259,7 @@ glm::vec3 World::raycastForBlock(
 
                 // out of bounds
                 if (chunkX < 0 || chunkX >= CHUNKS_X) {
-                    return glm::vec3(0.0f);
+                    return false;
                 }
 
                 maxX += deltaX;
@@ -258,7 +281,7 @@ glm::vec3 World::raycastForBlock(
 
                 // out of bounds
                 if (chunkZ < 0 || chunkZ >= CHUNKS_Z) {
-                    return glm::vec3(0.0f);
+                    return false;
                 }
 
                 maxZ += deltaZ;
@@ -282,7 +305,7 @@ glm::vec3 World::raycastForBlock(
 
                 // out of bounds
                 if (chunkY < 0 || chunkY >= CHUNKS_Y) {
-                    return glm::vec3(0.0f);
+                    return false;
                 }
 
                 maxY += deltaY;
@@ -304,16 +327,28 @@ glm::vec3 World::raycastForBlock(
 
                 // out of bounds
                 if (chunkZ < 0 || chunkZ >= CHUNKS_Z) {
-                    return glm::vec3(0.0f);
+                    return false;
                 }
 
                 maxZ += deltaZ;
             }
         }
 
+        // calculate the distance traveled so far
+        int dx = (CHUNK_SIZE * chunkX + blockX - startX);
+        int dy = (CHUNK_SIZE * chunkY + blockY - startY);
+        int dz = (CHUNK_SIZE * chunkZ + blockZ - startZ);
+
+        int distanceSquared = dx * dx + dy * dy + dz * dz;
+
+        // do a range check
+        if (distanceSquared > rangeSquared) {
+            return false;
+        }
+
         blockIndex = blockZ * CHUNK_SIZE_SQ + blockY * CHUNK_SIZE + blockX;
 
-        // calculate a new chunk index only when there was a change 
+        // calculate a new chunk index only when there was a change
         if (chunkChanged) {
             currentChunk = chunkZ * CHUNKS_XY + chunkY * CHUNKS_X + chunkX;
         }
@@ -327,14 +362,14 @@ glm::vec3 World::raycastForBlock(
         }
     } while (block == BLOCK_AIR);
 
-    success = true;
-
     // the intersection was found
-    return glm::vec3(
+    intersect = glm::vec3(
         chunkX * CHUNK_SIZE + blockX,
         chunkY * CHUNK_SIZE + blockY,
         chunkZ * CHUNK_SIZE + blockZ
     );
+
+    return true;
 }
 
 void World::drawChunk(int index) {
@@ -366,11 +401,16 @@ void World::generateMeshes() {
 }
 
 void World::generateChunkMesh(int c_x, int c_y, int c_z) {
-    uint32 indexOffset = 0;
+    if (
+        c_x < 0 || c_y < 0 || c_z < 0 ||
+        c_x >= CHUNKS_X || c_y >= CHUNKS_Y || c_z >= CHUNKS_Z
+    ) return;
 
     m_currentChunk = c_z * CHUNKS_XY + c_y * CHUNKS_X + c_x;
 
     if (chunks[m_currentChunk].empty) return;
+
+    uint32 indexOffset = 0;
 
     m_current_x = c_x;
     m_current_y = c_y;

@@ -19,12 +19,12 @@ public:
     void replaceBlock(const glm::vec3& position, Block block);
 
     // assumes that direction is normalized
-    // return the intersected block position
-    glm::vec3 raycastForBlock(
+    // returns true on success
+    bool raycastForBlock(
         const glm::vec3& position, 
         const glm::vec3& direction, 
         float range,
-        bool& success,
+        glm::vec3& intersect,
         glm::vec3& normal
     );
 
